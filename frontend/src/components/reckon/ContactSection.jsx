@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const WA_NUMBER = "919975030303";
 
 export default function ContactSection() {
@@ -24,6 +24,14 @@ export default function ContactSection() {
 
   const onChange = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const buildWhatsAppText = () =>
+    `Hi Reckon Computers,%0A%0A` +
+    `*Name:* ${form.name}%0A` +
+    `*Email:* ${form.email}%0A` +
+    `*Phone:* ${form.phone}%0A` +
+    `*Subject:* ${form.subject || "General Enquiry"}%0A%0A` +
+    `${form.message}`;
+
   const submit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.phone || !form.message) {
@@ -31,25 +39,29 @@ export default function ContactSection() {
       return;
     }
     setLoading(true);
-    try {
-      await axios.post(`${API}/contact`, form);
-      toast.success("Thanks! Our team will reach out within 24 hours.");
-      setForm({
-        name: "",
-        email: "",
-        phone: "",
-        subject: "General Enquiry",
-        message: "",
-      });
-    } catch (err) {
-      const detail = err?.response?.data?.detail || "Please try again shortly.";
-      toast.error(`Could not submit — ${detail}`);
-    } finally {
-      setLoading(false);
+    // Try to save to backend if available; fall back gracefully for static hosts (e.g. GitHub Pages).
+    if (BACKEND_URL) {
+      try {
+        await axios.post(`${BACKEND_URL}/api/contact`, form, { timeout: 6000 });
+      } catch (_) {
+        /* silent fallback — the WhatsApp link still opens below */
+      }
     }
+    // Open WhatsApp with the message pre-filled — works on any host, including GitHub Pages
+    const url = `https://wa.me/${WA_NUMBER}?text=${buildWhatsAppText()}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    toast.success("Opening WhatsApp with your message…");
+    setForm({
+      name: "",
+      email: "",
+      phone: "",
+      subject: "General Enquiry",
+      message: "",
+    });
+    setLoading(false);
   };
 
-  const waLink = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(
+  const waQuickLink = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(
     "Hi Reckon Computers, I'd like to enquire about your products / services."
   )}`;
 
@@ -127,7 +139,7 @@ export default function ContactSection() {
           </div>
 
           <a
-            href={waLink}
+            href={waQuickLink}
             target="_blank"
             rel="noopener noreferrer"
             data-testid="contact-whatsapp-btn"
@@ -231,17 +243,17 @@ export default function ContactSection() {
 
           <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <p className="font-mono text-[11px] text-[#475569] max-w-sm leading-relaxed">
-              By submitting you agree to be contacted by Reckon Computers
-              regarding your enquiry.
+              Submitting will open WhatsApp with your enquiry pre-filled, ready
+              to send.
             </p>
             <Button
               type="submit"
               disabled={loading}
               data-testid="contact-submit"
-              className="rounded-none bg-[#0055FF] hover:bg-[#0044CC] text-white h-12 px-7"
+              className="rounded-none bg-[#25D366] hover:bg-[#1ebe5d] text-white h-12 px-7"
             >
-              {loading ? "Sending..." : "Send enquiry"}
-              <Send className="ml-1 w-4 h-4" />
+              {loading ? "Opening..." : "Send via WhatsApp"}
+              <FaWhatsapp className="ml-2 w-4 h-4" />
             </Button>
           </div>
         </motion.form>
